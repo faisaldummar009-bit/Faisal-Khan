@@ -1,0 +1,6 @@
+{
+  "name": "Light GPT",
+  "description": "Professional AI assistant with real-time conversational intelligence, image generation, multimodal vision, AI tools, and sleek mint accents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
