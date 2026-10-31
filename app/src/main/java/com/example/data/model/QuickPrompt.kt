@@ -20,6 +20,30 @@ data class QuickPrompt(
 
 object QuickPromptLibrary {
     val prompts: List<QuickPrompt> = listOf(
+        QuickPrompt(
+            id = "owner_info",
+            title = "Who is Light GPT's Owner?",
+            category = PromptCategory.LEARNING,
+            template = "Who is the owner of Light GPT?",
+            description = "Learn about Faisal Khan, the 19-year-old creator of Light GPT from Quetta kuchlak, Pakistan.",
+            tags = listOf("Owner", "Creator", "Faisal Khan")
+        ),
+        QuickPrompt(
+            id = "speed_solver",
+            title = "⚡ Lightning Speed Solver",
+            category = PromptCategory.LEARNING,
+            template = "Solve this problem at top speed with the direct answer first, clean step-by-step logic, and friendly insights:\n\n\"[describe any math, science, riddle, or life question]\"",
+            description = "Get immediate, razor-sharp answers in seconds for any challenge.",
+            tags = listOf("Speed", "Answers", "Smart")
+        ),
+        QuickPrompt(
+            id = "universal_mind",
+            title = "🧠 Answer Any Question (Universal AI)",
+            category = PromptCategory.LEARNING,
+            template = "Act as an omniscient, friendly expert and give me a crystal-clear, fascinating breakdown of:\n\n\"[any question or curious topic in the universe]\"",
+            description = "Explains any concept, scientific phenomenon, or deep question warmly.",
+            tags = listOf("Universal", "Knowledge", "Friendly")
+        ),
         // WRITING ASSISTANCE (8 items)
         QuickPrompt(
             id = "w1",

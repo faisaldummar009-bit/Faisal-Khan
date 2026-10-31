@@ -8,8 +8,9 @@ enum class ScreenDestination(val title: String, val icon: String) {
 }
 
 enum class AiModel(val modelId: String, val displayName: String, val tag: String) {
-    FLASH_3_5("gemini-3.5-flash", "Gemini 3.5 Flash", "Fast & Responsive"),
-    PRO_3_1("gemini-3.1-pro-preview", "Gemini 3.1 Pro", "Deep Reasoning & Code"),
+    FLASH_3_5("gemini-3.5-flash", "Light GPT Turbo", "⚡ Top Speed (<1s) & Smart"),
+    FLASH_2_5("gemini-2.5-flash", "Light GPT Instant", "⚡ Blazing Fast"),
+    PRO_3_1("gemini-3.1-pro-preview", "Light GPT Pro", "Deep Reasoning & Code"),
     IMAGE_FLASH("gemini-2.5-flash-image", "Gemini Image Studio", "Visual Synthesis")
 }
 

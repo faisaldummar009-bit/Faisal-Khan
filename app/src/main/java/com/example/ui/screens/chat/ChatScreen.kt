@@ -98,6 +98,10 @@ import com.example.data.local.entity.ChatMessageEntity
 import com.example.data.model.AiModel
 import com.example.data.model.QuickPrompt
 import com.example.data.model.QuickPromptLibrary
+import com.example.ui.components.AudioWaveformVisualizer
+import com.example.ui.components.LightGptPulsingLogo
+import com.example.ui.components.LightGptThinkingCard
+import com.example.ui.components.LightGptTypingDots
 import com.example.ui.components.MarkdownView
 import com.example.ui.components.QuickPromptLibraryDialog
 import com.example.ui.theme.DarkBorder
@@ -137,17 +141,66 @@ fun ChatScreen(
         }
     }
 
-    // Speech-to-Text Recognizer Launcher
+    // Voice Recognition state & launcher
+    var isListening by remember { mutableStateOf(false) }
+
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isListening = false
         if (result.resultCode == Activity.RESULT_OK) {
             val spokenText = result.data
                 ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 ?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
                 inputText = if (inputText.isBlank()) spokenText else "$inputText $spokenText"
+                Toast.makeText(context, "Voice transcribed: \"$spokenText\"", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            isListening = true
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Light GPT...")
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            }
+            try {
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                isListening = false
+                Toast.makeText(context, "Voice recognition service unavailable", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Microphone permission required for voice recognition", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val launchVoiceRecognition = {
+        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            isListening = true
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Light GPT...")
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            }
+            try {
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                isListening = false
+                Toast.makeText(context, "Voice recognition service unavailable", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -189,12 +242,21 @@ fun ChatScreen(
                                     .background(MintContainerDark)
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text(
-                                    text = uiState.selectedModel.displayName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MintOnContainerDark
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = uiState.selectedModel.displayName,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MintOnContainerDark
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "• ⚡ Turbo",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MintPrimary
+                                    )
+                                }
                             }
                         }
                     }
@@ -330,6 +392,7 @@ fun ChatScreen(
                     inputText = ""
                 },
                 isStreaming = uiState.isStreaming,
+                isListening = isListening,
                 attachedImageUri = uiState.attachedImageUri,
                 onRemoveImage = { viewModel.removeAttachedImage() },
                 onAttachImage = {
@@ -337,20 +400,7 @@ fun ChatScreen(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
                 },
-                onVoiceInput = {
-                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(
-                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                        )
-                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Light GPT")
-                    }
-                    try {
-                        speechLauncher.launch(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Speech recognition not available", Toast.LENGTH_SHORT).show()
-                    }
-                },
+                onVoiceInput = launchVoiceRecognition,
                 onOpenPromptLibrary = { showPromptLibrary = true }
             )
         }
@@ -379,23 +429,9 @@ private fun EmptyChatGreeting(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(68.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF0E1616))
-                .border(2.dp, MintPrimary, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_light_gpt_logo),
-                contentDescription = "Light GPT Logo",
-                modifier = Modifier.size(48.dp),
-                contentScale = ContentScale.Fit
-            )
-        }
+        LightGptPulsingLogo(size = 72.dp)
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Welcome to Light GPT",
@@ -407,14 +443,64 @@ private fun EmptyChatGreeting(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Conversational intelligence, code assistance & creative generation.",
+            text = "Your friendly, ultra-fast AI assistant ready to solve problems, generate code, write, and answer any kind of question in seconds.",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp),
-            lineHeight = 18.sp
+            modifier = Modifier.padding(horizontal = 20.dp),
+            lineHeight = 18.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Speed & Smart capability pills
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MintPrimary.copy(alpha = 0.12f))
+                    .border(1.dp, MintPrimary.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "⚡ Top Speed (<1s)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MintPrimary
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "🧠 Smart & Friendly",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "❓ Any Question",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Quick Prompts row
         Text(
@@ -672,20 +758,7 @@ private fun StreamingBubble(text: String) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0E1616))
-                    .border(1.dp, MintPrimary, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = MintPrimary,
-                    strokeWidth = 2.dp
-                )
-            }
+            LightGptPulsingLogo(size = 24.dp)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Light GPT is thinking...",
@@ -693,27 +766,25 @@ private fun StreamingBubble(text: String) {
                 color = MintPrimary,
                 fontWeight = FontWeight.SemiBold
             )
+            Spacer(modifier = Modifier.width(8.dp))
+            LightGptTypingDots(dotSize = 5.dp)
         }
 
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                .border(1.dp, MintPrimary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                .border(1.dp, MintPrimary.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             if (text.isNotBlank()) {
                 MarkdownView(content = text)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    LightGptTypingDots(dotSize = 7.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "●",
-                        color = MintPrimary,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Synthesizing response...",
+                        text = "Synthesizing intelligence...",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -729,6 +800,7 @@ private fun ChatInputBar(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     isStreaming: Boolean,
+    isListening: Boolean,
     attachedImageUri: android.net.Uri?,
     onRemoveImage: () -> Unit,
     onAttachImage: () -> Unit,
@@ -738,9 +810,41 @@ private fun ChatInputBar(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 4.dp
+        tonalElevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            // Live voice listening waveform banner
+            AnimatedVisibility(visible = isListening) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MintContainerDark)
+                        .border(1.dp, MintPrimary.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AudioWaveformVisualizer(isRecording = true)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Listening... Speak to transcribe text",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MintOnContainerDark
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444))
+                    )
+                }
+            }
+
             // Attached image preview chip
             if (attachedImageUri != null) {
                 Row(
@@ -789,19 +893,6 @@ private fun ChatInputBar(
                     )
                 }
 
-                // Voice microphone button
-                IconButton(
-                    onClick = onVoiceInput,
-                    modifier = Modifier.size(42.dp).testTag("voice_input_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice input",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
                 // Prompt library shortcut icon
                 IconButton(
                     onClick = onOpenPromptLibrary,
@@ -815,7 +906,7 @@ private fun ChatInputBar(
                     )
                 }
 
-                // Text Input Field
+                // Text Input Field with integrated Microphone button
                 OutlinedTextField(
                     value = text,
                     onValueChange = onTextChange,
@@ -825,9 +916,29 @@ private fun ChatInputBar(
                         .testTag("chat_input_field"),
                     placeholder = {
                         Text(
-                            text = if (attachedImageUri != null) "Ask about this image..." else "Ask Light GPT anything...",
+                            text = if (isListening) "Listening..." else if (attachedImageUri != null) "Ask about this image..." else "Type or tap mic to speak...",
                             fontSize = 14.sp
                         )
+                    },
+                    trailingIcon = {
+                        // Microphone Button inside the input field for voice speech-to-text
+                        IconButton(
+                            onClick = onVoiceInput,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isListening) MintPrimary.copy(alpha = 0.35f) else Color.Transparent
+                                )
+                                .testTag("chat_microphone_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Voice recognition input",
+                                tint = if (isListening) MintPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     },
                     shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(

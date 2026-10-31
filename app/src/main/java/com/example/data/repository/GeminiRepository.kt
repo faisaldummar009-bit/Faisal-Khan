@@ -96,11 +96,15 @@ class GeminiRepository {
                         val firstCandidate = candidates?.getOrNull(0)?.jsonObject
                         val contentObj = firstCandidate?.get("content")?.jsonObject
                         val partsArr = contentObj?.get("parts")?.jsonArray
-                        val textChunk = partsArr?.getOrNull(0)?.jsonObject?.get("text")?.jsonPrimitive?.content
-                        if (textChunk != null) {
-                            fullAccumulator.append(textChunk)
-                            withContext(Dispatchers.Main) {
-                                onChunk(textChunk)
+                        if (partsArr != null) {
+                            for (p in partsArr) {
+                                val textChunk = p.jsonObject["text"]?.jsonPrimitive?.content
+                                if (!textChunk.isNullOrEmpty()) {
+                                    fullAccumulator.append(textChunk)
+                                    withContext(Dispatchers.Main) {
+                                        onChunk(textChunk)
+                                    }
+                                }
                             }
                         }
                     } catch (_: Exception) {

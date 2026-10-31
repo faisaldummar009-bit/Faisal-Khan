@@ -55,6 +55,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.example.ui.components.LightGptPulsingLogo
+import com.example.ui.components.LightGptThinkingCard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -380,7 +382,7 @@ fun ImageEditScreen(
                 )
             ) {
                 if (uiState.isEditing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                    LightGptPulsingLogo(size = 20.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Transforming Image with Gemini...", fontWeight = FontWeight.Bold)
                 } else {
@@ -388,6 +390,11 @@ fun ImageEditScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Apply AI Edit", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
+            }
+
+            if (uiState.isEditing) {
+                Spacer(modifier = Modifier.height(14.dp))
+                LightGptThinkingCard(statusText = "Applying neural image transformations...")
             }
         }
     }

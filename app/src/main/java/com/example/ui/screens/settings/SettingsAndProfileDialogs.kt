@@ -3,7 +3,14 @@ package com.example.ui.screens.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,17 +30,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -82,6 +95,11 @@ fun SettingsDialog(
     themeMode: ThemeMode,
     selectedModel: AiModel,
     customApiKey: String?,
+    userName: String = "Explorer",
+    userEmail: String = "faisaldummar009@gmail.com",
+    userBio: String = "",
+    userAvatarBase64: String? = null,
+    onEditProfile: () -> Unit = {},
     onThemeChange: (ThemeMode) -> Unit,
     onModelChange: (AiModel) -> Unit,
     onSaveApiKey: (String) -> Unit,
@@ -134,7 +152,84 @@ fun SettingsDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // User Profile Quick Card
+                Text(
+                    text = "USER PROFILE",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MintPrimary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val avatarBitmap = remember(userAvatarBase64) {
+                            userAvatarBase64?.let {
+                                try {
+                                    val bytes = Base64.decode(it, Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                } catch (_: Exception) { null }
+                            }
+                        }
+                        if (avatarBitmap != null) {
+                            Image(
+                                bitmap = avatarBitmap.asImageBitmap(),
+                                contentDescription = "Avatar",
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, MintPrimary, CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(MintPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = Color.Black, modifier = Modifier.size(26.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = userName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            if (userBio.isNotBlank()) {
+                                Text(text = userBio, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                            Text(text = userEmail, fontSize = 11.sp, color = MintPrimary)
+                        }
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onEditProfile()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MintPrimary, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(32.dp).testTag("edit_profile_btn")
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Edit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Theme Section
                 Text(
@@ -470,13 +565,63 @@ private fun ModelOptionCard(
 fun ProfileDialog(
     userName: String,
     userEmail: String,
+    userBio: String = "",
+    userAvatarBase64: String? = null,
     tier: UserTier,
     dailyUsageCount: Int,
+    onSaveProfile: (name: String, email: String, bio: String, avatarBase64: String?) -> Unit = { _, _, _, _ -> },
     onTierChange: (UserTier) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var isUpgrading by remember { mutableStateOf(false) }
+    var nameInput by remember(userName) { mutableStateOf(userName) }
+    var emailInput by remember(userEmail) { mutableStateOf(userEmail) }
+    var bioInput by remember(userBio) { mutableStateOf(userBio) }
+    var currentAvatarBase64 by remember(userAvatarBase64) { mutableStateOf(userAvatarBase64) }
+
+    val pickMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                val originalBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+                if (originalBitmap != null) {
+                    val maxDim = 256
+                    val width = originalBitmap.width
+                    val height = originalBitmap.height
+                    val scale = if (width > height) maxDim.toFloat() / width else maxDim.toFloat() / height
+                    val scaledBitmap = if (scale < 1.0f) {
+                        Bitmap.createScaledBitmap(
+                            originalBitmap,
+                            (width * scale).toInt(),
+                            (height * scale).toInt(),
+                            true
+                        )
+                    } else {
+                        originalBitmap
+                    }
+                    val stream = ByteArrayOutputStream()
+                    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+                    val bytes = stream.toByteArray()
+                    currentAvatarBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    Toast.makeText(context, "Avatar selected. Click Save to apply.", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to load image: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val avatarBitmap = remember(currentAvatarBase64) {
+        currentAvatarBase64?.let {
+            try {
+                val bytes = Base64.decode(it, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (_: Exception) { null }
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -485,12 +630,16 @@ fun ProfileDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(16.dp)
                 .clip(RoundedCornerShape(16.dp)),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -498,58 +647,231 @@ fun ProfileDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Account & Subscription",
+                        text = "User Profile & Account",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.testTag("close_profile_btn")) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // User card
+                // Avatar and Change Controls
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        .padding(12.dp),
+                        .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(72.dp)
                             .clip(CircleShape)
-                            .background(MintPrimary),
+                            .border(2.dp, MintPrimary, CircleShape)
+                            .clickable {
+                                pickMediaLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                            .testTag("avatar_picker_box"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(26.dp)
-                        )
+                        if (avatarBitmap != null) {
+                            Image(
+                                bitmap = avatarBitmap.asImageBitmap(),
+                                contentDescription = "User Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MintPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(38.dp)
+                                )
+                            }
+                        }
+
+                        // Camera overlay badge
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                contentDescription = "Change Avatar",
+                                tint = MintPrimary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = userName,
-                            fontSize = 15.sp,
+                            text = "Profile Avatar",
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = userEmail,
-                            fontSize = 12.sp,
+                            text = "Tap to choose a picture from your device gallery",
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    pickMediaLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("upload_avatar_btn")
+                            ) {
+                                Text("Upload", fontSize = 11.sp)
+                            }
+                            if (currentAvatarBase64 != null) {
+                                TextButton(
+                                    onClick = { currentAvatarBase64 = null },
+                                    modifier = Modifier.testTag("remove_avatar_btn")
+                                ) {
+                                    Text("Remove", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // Profile Fields
+                Text(
+                    text = "PROFILE DETAILS",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MintPrimary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Username input
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    label = { Text("Username") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_username_input"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MintPrimary,
+                        cursorColor = MintPrimary
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Email field
+                OutlinedTextField(
+                    value = emailInput,
+                    onValueChange = { emailInput = it },
+                    label = { Text("Email Address") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_email_input"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MintPrimary,
+                        cursorColor = MintPrimary
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Short Bio input
+                OutlinedTextField(
+                    value = bioInput,
+                    onValueChange = { if (it.length <= 160) bioInput = it },
+                    label = { Text("Short Bio") },
+                    placeholder = { Text("e.g. AI researcher, software developer, curious explorer...") },
+                    minLines = 2,
+                    maxLines = 4,
+                    supportingText = {
+                        Text(
+                            text = "${bioInput.length}/160 characters",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("profile_bio_input"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MintPrimary,
+                        cursorColor = MintPrimary
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Save Profile Button
+                Button(
+                    onClick = {
+                        val trimmedName = if (nameInput.isBlank()) "Explorer" else nameInput.trim()
+                        val trimmedEmail = if (emailInput.isBlank()) "faisaldummar009@gmail.com" else emailInput.trim()
+                        onSaveProfile(trimmedName, trimmedEmail, bioInput.trim(), currentAvatarBase64)
+                        Toast.makeText(context, "Profile saved successfully!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MintPrimary,
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("save_profile_btn")
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Save Profile Changes", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Subscription Plan & Daily Quota Section
+                Text(
+                    text = "SUBSCRIPTION & USAGE",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MintPrimary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Tier Usage Card
                 Card(
@@ -602,11 +924,8 @@ fun ProfileDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Monetization info according to requirements:
-                // Include a free tier with usage limits. Design optional premium plans.
-                // Keep billing disabled until a legitimate payment provider is configured.
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -643,7 +962,7 @@ fun ProfileDialog(
                                 .padding(8.dp)
                         ) {
                             Text(
-                                text = "Notice: Live payment gateway is deactivated in this build. You can toggle Plus tier below for evaluation without charges.",
+                                text = "Notice: Live billing is deactivated. You can toggle Plus tier below for testing without charges.",
                                 fontSize = 11.sp,
                                 color = MintPrimary,
                                 lineHeight = 15.sp
@@ -667,7 +986,9 @@ fun ProfileDialog(
                                 contentColor = Color.Black
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("toggle_plan_button")
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("toggle_plan_button")
                         ) {
                             Text(
                                 text = if (tier == UserTier.FREE) "Activate Light GPT Plus (Test Mode)" else "Downgrade to Free Plan",

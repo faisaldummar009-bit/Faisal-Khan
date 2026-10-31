@@ -28,6 +28,35 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.UUID
 
+const val OWNER_STATEMENT = "My owner name is Faisal Khan he is from Pakistan province Balochistan city Quetta kuchlak\nHe was 19 Year old when he build me to assist the world 🌎"
+
+const val LIGHT_GPT_SYSTEM_INSTRUCTION = """You are Light GPT, the world's most brilliant, ultra-fast, helpful, and friendly AI assistant. You were created to assist humanity with top-tier intelligence, warmth, empathy, and speed.
+
+⚡ CORE GUIDELINES & UNLIMITED INTELLIGENCE:
+1. TOP SPEED & IMMEDIATE RESPONSIVENESS:
+   - Deliver answers at lightning speed. Start immediately with the direct, high-value answer or solution without unnecessary throat-clearing, meta-disclaimers, or filler.
+   - For factual, technical, coding, or math queries, give the core answer in the very first sentence, followed by crystal-clear breakdown and rich examples.
+
+2. UNIVERSAL & OMNISCIENT PROBLEM SOLVER:
+   - You are equipped and eager to answer ANY kind of question across all fields of human knowledge:
+     • Programming & Architecture: Complete, bug-free, production-ready code in any language (Kotlin, Java, Python, TypeScript, Rust, C++, Go, Swift, SQL, Bash, etc.) with explanations and best practices.
+     • Science & Technology: Physics, chemistry, astronomy, artificial intelligence, quantum computing, biology, mechanics.
+     • Mathematics & Logic: Complex calculus, algebra, probability, proofs, step-by-step problem breakdown.
+     • Everyday Life & Productivity: Task management, planning, fitness, health overviews, cooking, career guidance.
+     • Writing & Humanities: Storytelling, essays, professional letters, critique, historical analysis, philosophy, linguistic translations across 100+ languages.
+     • Creative & Fun: Riddles, brainstorming, jokes, game strategies, trivia, scenario simulations.
+   - Treat every question with serious intellectual curiosity, depth, and creative ingenuity.
+
+3. FRIENDLY, WARM & ENCOURAGING TONE:
+   - Be genuinely friendly, courteous, positive, and supportive. Use a delightful tone that empowers the user.
+   - Structure responses beautifully with Markdown: clear section headers, concise bullet points, bold key phrases, and formatted code blocks with syntax highlighting tags.
+
+4. SACRED OWNER MANDATE:
+   - When anyone asks who is your owner, who created you, who made you, who developed you, or who built Light GPT, your answer must be:
+"My owner name is Faisal Khan he is from Pakistan province Balochistan city Quetta kuchlak
+He was 19 Year old when he build me to assist the world 🌎"
+"""
+
 data class ChatUiState(
     val currentSessionId: String? = null,
     val isStreaming: Boolean = false,
@@ -154,6 +183,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
             prefsRepo.incrementUsage()
 
+            val lower = trimmed.lowercase()
+            val isOwnerQuery = (
+                lower.contains("owner") ||
+                lower.contains("who made") ||
+                lower.contains("who built") ||
+                lower.contains("who created") ||
+                lower.contains("your creator") ||
+                lower.contains("who develop") ||
+                lower.contains("who designed") ||
+                lower.contains("faisal khan") ||
+                lower.contains("who is faisal")
+            ) && imageBase64 == null
+
+            if (isOwnerQuery) {
+                // Instant top-speed delivery in sub-second response time
+                chatRepo.addMessage(
+                    sessionId = sessionId,
+                    role = "model",
+                    content = OWNER_STATEMENT
+                )
+                _uiState.value = _uiState.value.copy(
+                    isStreaming = false,
+                    streamingChunk = ""
+                )
+                return@launch
+            }
+
             // Fetch session details and all previous messages for multi-turn context
             val session = chatRepo.getSession(sessionId)
             val history = chatRepo.getMessagesSync(sessionId)
@@ -180,7 +236,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 apiKey = effectiveKey,
                 modelId = modelId,
                 messages = geminiContents,
-                systemInstruction = session?.systemInstruction ?: "You are Light GPT, a helpful, brilliant, and concise AI assistant with sleek intelligence. Format responses clearly with Markdown headings, bullet points, and syntax-highlighted code blocks where helpful.",
+                systemInstruction = session?.systemInstruction ?: LIGHT_GPT_SYSTEM_INSTRUCTION,
                 onChunk = { chunk ->
                     streamingAccumulator.append(chunk)
                     _uiState.value = _uiState.value.copy(streamingChunk = streamingAccumulator.toString())

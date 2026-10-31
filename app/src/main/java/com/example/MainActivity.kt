@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
             val customApiKey by prefsRepo.customApiKey.collectAsState(initial = null)
             val userName by prefsRepo.userName.collectAsState(initial = "Explorer")
             val userEmail by prefsRepo.userEmail.collectAsState(initial = "faisaldummar009@gmail.com")
+            val userBio by prefsRepo.userBio.collectAsState(initial = "")
+            val userAvatarBase64 by prefsRepo.userAvatarBase64.collectAsState(initial = null)
 
             val sessions by chatViewModel.sessions.collectAsState()
             val chatUiState by chatViewModel.uiState.collectAsState()
@@ -92,6 +94,9 @@ class MainActivity : ComponentActivity() {
                             sessions = sessions,
                             userTier = userTier,
                             dailyUsageCount = dailyUsageCount,
+                            userName = userName,
+                            userBio = userBio,
+                            userAvatarBase64 = userAvatarBase64,
                             onNavigate = { dest ->
                                 currentScreen = dest
                                 scope.launch { drawerState.close() }
@@ -168,6 +173,14 @@ class MainActivity : ComponentActivity() {
                         themeMode = themeMode,
                         selectedModel = selectedModel,
                         customApiKey = customApiKey,
+                        userName = userName,
+                        userEmail = userEmail,
+                        userBio = userBio,
+                        userAvatarBase64 = userAvatarBase64,
+                        onEditProfile = {
+                            showSettings = false
+                            showProfile = true
+                        },
                         onThemeChange = { mode -> scope.launch { prefsRepo.setThemeMode(mode) } },
                         onModelChange = { model -> scope.launch { prefsRepo.setSelectedModel(model) } },
                         onSaveApiKey = { key -> scope.launch { prefsRepo.setCustomApiKey(key) } },
@@ -184,8 +197,15 @@ class MainActivity : ComponentActivity() {
                     ProfileDialog(
                         userName = userName,
                         userEmail = userEmail,
+                        userBio = userBio,
+                        userAvatarBase64 = userAvatarBase64,
                         tier = userTier,
                         dailyUsageCount = dailyUsageCount,
+                        onSaveProfile = { name, email, bio, avatar ->
+                            scope.launch {
+                                prefsRepo.updateProfile(name, email, bio, avatar)
+                            }
+                        },
                         onTierChange = { tier -> scope.launch { prefsRepo.setUserTier(tier) } },
                         onDismiss = { showProfile = false }
                     )

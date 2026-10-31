@@ -30,6 +30,8 @@ class UserPreferencesRepository(private val context: Context) {
         val LAST_USAGE_DATE = stringPreferencesKey("last_usage_date")
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_EMAIL = stringPreferencesKey("user_email")
+        val USER_BIO = stringPreferencesKey("user_bio")
+        val USER_AVATAR_BASE64 = stringPreferencesKey("user_avatar_base64")
     }
 
     val customApiKey: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -67,6 +69,14 @@ class UserPreferencesRepository(private val context: Context) {
 
     val userEmail: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.USER_EMAIL] ?: "faisaldummar009@gmail.com"
+    }
+
+    val userBio: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.USER_BIO] ?: "Exploring the frontiers of intelligence with Light GPT 🚀"
+    }
+
+    val userAvatarBase64: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.USER_AVATAR_BASE64]
     }
 
     /**
@@ -121,10 +131,14 @@ class UserPreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun updateProfile(name: String, email: String) {
+    suspend fun updateProfile(name: String, email: String, bio: String, avatarBase64: String?) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.USER_NAME] = name.trim()
             preferences[PreferencesKeys.USER_EMAIL] = email.trim()
+            preferences[PreferencesKeys.USER_BIO] = bio.trim()
+            if (avatarBase64 != null) {
+                preferences[PreferencesKeys.USER_AVATAR_BASE64] = avatarBase64
+            }
         }
     }
 

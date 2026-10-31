@@ -57,6 +57,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.example.ui.components.LightGptPulsingLogo
+import com.example.ui.components.LightGptThinkingCard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -312,11 +314,7 @@ fun ImageGenScreen(
                         )
                     ) {
                         if (uiState.isGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.Black,
-                                strokeWidth = 2.dp
-                            )
+                            LightGptPulsingLogo(size = 20.dp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Synthesizing Visuals with Gemini...", fontWeight = FontWeight.Bold)
                         } else {
@@ -324,6 +322,11 @@ fun ImageGenScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Generate Image", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
+                    }
+
+                    if (uiState.isGenerating) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        LightGptThinkingCard(statusText = "Synthesizing artwork with Gemini 2.5 Flash Image...")
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))

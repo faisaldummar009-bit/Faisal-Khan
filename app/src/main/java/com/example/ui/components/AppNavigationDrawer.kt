@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,6 +83,9 @@ fun AppNavigationDrawer(
     sessions: List<ChatSessionEntity>,
     userTier: UserTier,
     dailyUsageCount: Int,
+    userName: String = "Explorer",
+    userBio: String = "",
+    userAvatarBase64: String? = null,
     onNavigate: (ScreenDestination) -> Unit,
     onSelectSession: (String) -> Unit,
     onNewChat: () -> Unit,
@@ -353,6 +359,9 @@ fun AppNavigationDrawer(
 
             // Profile & Plan Widget
             CardPlanWidget(
+                userName = userName,
+                userBio = userBio,
+                userAvatarBase64 = userAvatarBase64,
                 tier = userTier,
                 usageCount = dailyUsageCount,
                 onClick = onOpenProfile
@@ -549,6 +558,9 @@ private fun SessionHistoryItem(
 
 @Composable
 private fun CardPlanWidget(
+    userName: String,
+    userBio: String,
+    userAvatarBase64: String?,
     tier: UserTier,
     usageCount: Int,
     onClick: () -> Unit
@@ -556,26 +568,44 @@ private fun CardPlanWidget(
     val remaining = (tier.dailyLimit - usageCount).coerceAtLeast(0)
     val progress = (usageCount.toFloat() / tier.dailyLimit.toFloat()).coerceIn(0f, 1f)
 
+    val avatarBitmap = remember(userAvatarBase64) {
+        userAvatarBase64?.let {
+            try {
+                val bytes = Base64.decode(it, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (_: Exception) { null }
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .testTag("plan_widget"),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         )
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (avatarBitmap != null) {
+                    Image(
+                        bitmap = avatarBitmap.asImageBitmap(),
+                        contentDescription = "User Avatar",
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, MintPrimary, CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
                             .background(MintPrimary),
                         contentAlignment = Alignment.Center
@@ -584,27 +614,58 @@ private fun CardPlanWidget(
                             Icons.Default.Person,
                             contentDescription = null,
                             tint = Color.Black,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = tier.title,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
 
-                Text(
-                    text = "$remaining left today",
-                    fontSize = 10.sp,
-                    color = MintPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = userName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MintPrimary.copy(alpha = 0.2f))
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = tier.title,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MintPrimary
+                            )
+                        }
+                    }
+                    if (userBio.isNotBlank()) {
+                        Text(
+                            text = userBio,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        Text(
+                            text = "$remaining queries left today",
+                            fontSize = 10.sp,
+                            color = MintPrimary
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Progress bar
             Box(
